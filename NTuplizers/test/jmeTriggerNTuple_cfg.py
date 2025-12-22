@@ -1,7 +1,79 @@
+# cmsDriver.py step0 -s HLT:GRun --mc --conditions auto:run3_hlt_GRun --era Run3 --processName HLTX
+import FWCore.ParameterSet.Config as cms
+
+from Configuration.Eras.Era_Run3_cff import Run3
+
+process = cms.Process('HLTX', Run3)
+
+# import of standard configurations
+process.load('Configuration.StandardSequences.Services_cff')
+process.load('FWCore.MessageService.MessageLogger_cfi')
+process.load('Configuration.EventContent.EventContent_cff')
+process.load('Configuration.StandardSequences.GeometryRecoDB_cff')
+process.load('Configuration.StandardSequences.MagneticField_cff')
+process.load('HLTrigger.Configuration.HLT_GRun_cff')
+process.load('Configuration.StandardSequences.EndOfProcess_cff')
+process.load('Configuration.StandardSequences.FrontierConditions_GlobalTag_cff')
+
+process.maxEvents = cms.untracked.PSet(
+    input = cms.untracked.int32(1),
+    output = cms.optional.untracked.allowed(cms.int32,cms.PSet)
+)
+
+# Input source
+process.source = cms.Source('PoolSource',
+    fileNames = cms.untracked.vstring(),
+    secondaryFileNames = cms.untracked.vstring()
+)
+
+process.options = cms.untracked.PSet(
+    FailPath = cms.untracked.vstring(),
+    IgnoreCompletely = cms.untracked.vstring(),
+    Rethrow = cms.untracked.vstring(),
+    SkipEvent = cms.untracked.vstring(),
+    allowUnscheduled = cms.obsolete.untracked.bool,
+    canDeleteEarly = cms.untracked.vstring(),
+    deleteNonConsumedUnscheduledModules = cms.untracked.bool(True),
+    dumpOptions = cms.untracked.bool(False),
+    emptyRunLumiMode = cms.obsolete.untracked.string,
+    eventSetup = cms.untracked.PSet(
+        forceNumberOfConcurrentIOVs = cms.untracked.PSet(
+            allowAnyLabel_=cms.required.untracked.uint32
+        ),
+        numberOfConcurrentIOVs = cms.untracked.uint32(0)
+    ),
+    fileMode = cms.untracked.string('FULLMERGE'),
+    forceEventSetupCacheClearOnNewRun = cms.untracked.bool(False),
+    makeTriggerResults = cms.obsolete.untracked.bool,
+    numberOfConcurrentLuminosityBlocks = cms.untracked.uint32(0),
+    numberOfConcurrentRuns = cms.untracked.uint32(1),
+    numberOfStreams = cms.untracked.uint32(0),
+    numberOfThreads = cms.untracked.uint32(1),
+    printDependencies = cms.untracked.bool(False),
+    sizeOfStackForThreadsInKB = cms.optional.untracked.uint32,
+    throwIfIllegalParameter = cms.untracked.bool(True),
+    wantSummary = cms.untracked.bool(False)
+)
+
+from HLTrigger.Configuration.CustomConfigs import ProcessName
+process = ProcessName(process)
+
+from Configuration.AlCa.GlobalTag import GlobalTag
+process.GlobalTag = GlobalTag(process.GlobalTag, 'auto:run3_hlt_GRun', '')
+
+# Automatic addition of the customisation function from HLTrigger.Configuration.customizeHLTforMC
+from HLTrigger.Configuration.customizeHLTforMC import customizeHLTforMC
+process = customizeHLTforMC(process)
+
+# Add early deletion of temporary data products to reduce peak memory need
+from Configuration.StandardSequences.earlyDeleteSettings_cff import customiseEarlyDelete
+process = customiseEarlyDelete(process)
+
+###### ----------------------------------------
+###### User Customisations for JMETriggerNTuple
+###### ----------------------------------------
 import os
 import fnmatch
-
-from CondCore.CondDB.CondDB_cfi import CondDB as _CondDB
 
 ###
 ### command-line arguments
@@ -44,7 +116,7 @@ opts.register('wantSummary', False,
 #              vpo.VarParsing.varType.string,
 #              'argument of process.GlobalTag.globaltag')
 
-opts.register('reco', 'HLT_Run3TRK',
+opts.register('reco', 'HLT_GRun',
               vpo.VarParsing.multiplicity.singleton,
               vpo.VarParsing.varType.string,
               'keyword to define HLT reconstruction')
@@ -74,28 +146,22 @@ opts.parseArguments()
 ###
 ### HLT configuration
 ###
-if opts.reco == 'HLT_GRun_oldJECs':
-  from JMETriggerAnalysis.Common.configs.HLT_dev_CMSSW_12_2_0_GRun_configDump import cms, process
-  update_jmeCalibs = False
+from JMETriggerAnalysis.Common.customise_hlt import *
 
-elif opts.reco == 'HLT_GRun':
-  from JMETriggerAnalysis.Common.configs.HLT_dev_CMSSW_12_2_0_GRun_configDump import cms, process
-  update_jmeCalibs = True
+# list of patterns to determine paths to keep
+keepPaths = [
+  'MC_*Calo*Jet*',
+  'MC_*Calo*MET*',
+  'MC_*RecHit*',
+]
 
-elif opts.reco == 'HLT_Run3TRK':
-  # (a) Run-3 tracking: standard
-  from JMETriggerAnalysis.Common.configs.HLT_dev_CMSSW_12_2_0_GRun_configDump import cms, process
-  from HLTrigger.Configuration.customizeHLTforRun3Tracking import customizeHLTforRun3Tracking
-  process = customizeHLTforRun3Tracking(process)
-  update_jmeCalibs = True
+vetoPaths = [
+]
 
-elif opts.reco == 'HLT_Run3TRKWithPU':
-  # (b) Run-3 tracking: all pixel vertices
-  from JMETriggerAnalysis.Common.configs.HLT_dev_CMSSW_12_2_0_GRun_configDump import cms, process
-  from HLTrigger.Configuration.customizeHLTforRun3Tracking import customizeHLTforRun3TrackingAllPixelVertices
-  process = customizeHLTforRun3TrackingAllPixelVertices(process)
-  update_jmeCalibs = True
-
+if opts.reco == 'HLT_GRun':
+  pass
+elif opts.reco == 'HLT_GRun_PFRecHit':
+  process = addPaths_MC_JMEPFRecHit(process)
 else:
   raise RuntimeError('keyword "reco = '+opts.reco+'" not recognised')
 
@@ -119,22 +185,6 @@ for _modname in process.endpaths_():
 print('-'*108)
 print('{:<99} | {:<4} |'.format('cms.Path', 'keep'))
 print('-'*108)
-
-# list of patterns to determine paths to keep
-keepPaths = [
-  'MC_*Jets*',
-  'MC_*MET*',
-  'MC_*AK8Calo*',
-  'HLT_PFJet*_v*',
-  'HLT_AK4PFJet*_v*',
-  'HLT_AK8PFJet*_v*',
-  'HLT_PFHT*_v*',
-  'HLT_PFMET*_PFMHT*_v*',
-]
-
-vetoPaths = [
-  'HLT_*ForPPRef_v*',
-]
 
 # list of paths that are kept
 listOfPaths = []
@@ -173,125 +223,13 @@ if hasattr(process, 'MessageLogger'):
 ### customisations
 ###
 
-## customised JME collections
-from JMETriggerAnalysis.Common.customise_hlt import *
-process = addPaths_MC_JMECalo(process)
-process = addPaths_MC_JMEPFCluster(process)
-process = addPaths_MC_JMEPF(process)
-process = addPaths_MC_JMEPFCHS(process)
-process = addPaths_MC_JMEPFPuppi(process)
-
-if update_jmeCalibs:
-  ## ES modules for PF-Hadron Calibrations
-  process.pfhcESSource = cms.ESSource('PoolDBESSource',
-    _CondDB.clone(connect = 'sqlite_file:'+os.environ['CMSSW_BASE']+'/src/JMETriggerAnalysis/NTuplizers/data/PFHC_Run3Winter20_HLT_v01.db'),
-    toGet = cms.VPSet(
-      cms.PSet(
-        record = cms.string('PFCalibrationRcd'),
-        tag = cms.string('PFCalibration_HLT_mcRun3_2021'),
-        label = cms.untracked.string('HLT'),
-      ),
-    ),
-  )
-  process.pfhcESPrefer = cms.ESPrefer('PoolDBESSource', 'pfhcESSource')
-  #process.hltParticleFlow.calibrationsLabel = '' # standard label for Offline-PFHC in GT
-
-  ## ES modules for HLT JECs
-  process.jescESSource = cms.ESSource('PoolDBESSource',
-    _CondDB.clone(connect = 'sqlite_file:'+os.environ['CMSSW_BASE']+'/src/JMETriggerAnalysis/NTuplizers/data/JESC_Run3Winter20_V2_MC.db'),
-    toGet = cms.VPSet(
-      cms.PSet(
-        record = cms.string('JetCorrectionsRecord'),
-        tag = cms.string('JetCorrectorParametersCollection_Run3Winter20_V2_MC_AK4CaloHLT'),
-        label = cms.untracked.string('AK4CaloHLT'),
-      ),
-      cms.PSet(
-        record = cms.string('JetCorrectionsRecord'),
-        tag = cms.string('JetCorrectorParametersCollection_Run3Winter20_V2_MC_AK4PFClusterHLT'),
-        label = cms.untracked.string('AK4PFClusterHLT'),
-      ),
-      cms.PSet(
-        record = cms.string('JetCorrectionsRecord'),
-        tag = cms.string('JetCorrectorParametersCollection_Run3Winter20_V2_MC_AK4PFHLT'),
-        label = cms.untracked.string('AK4PFHLT'),
-      ),
-      cms.PSet(
-        record = cms.string('JetCorrectionsRecord'),
-        tag = cms.string('JetCorrectorParametersCollection_Run3Winter20_V2_MC_AK4PFHLT'),#!!
-        label = cms.untracked.string('AK4PFchsHLT'),
-      ),
-      cms.PSet(
-        record = cms.string('JetCorrectionsRecord'),
-        tag = cms.string('JetCorrectorParametersCollection_Run3Winter20_V2_MC_AK4PFPuppiHLT'),
-        label = cms.untracked.string('AK4PFPuppiHLT'),
-      ),
-      cms.PSet(
-        record = cms.string('JetCorrectionsRecord'),
-        tag = cms.string('JetCorrectorParametersCollection_Run3Winter20_V2_MC_AK8CaloHLT'),
-        label = cms.untracked.string('AK8CaloHLT'),
-      ),
-      cms.PSet(
-        record = cms.string('JetCorrectionsRecord'),
-        tag = cms.string('JetCorrectorParametersCollection_Run3Winter20_V2_MC_AK8PFClusterHLT'),
-        label = cms.untracked.string('AK8PFClusterHLT'),
-      ),
-      cms.PSet(
-        record = cms.string('JetCorrectionsRecord'),
-        tag = cms.string('JetCorrectorParametersCollection_Run3Winter20_V2_MC_AK8PFHLT'),
-        label = cms.untracked.string('AK8PFHLT'),
-      ),
-      cms.PSet(
-        record = cms.string('JetCorrectionsRecord'),
-        tag = cms.string('JetCorrectorParametersCollection_Run3Winter20_V2_MC_AK8PFHLT'),#!!
-        label = cms.untracked.string('AK8PFchsHLT'),
-      ),
-      cms.PSet(
-        record = cms.string('JetCorrectionsRecord'),
-        tag = cms.string('JetCorrectorParametersCollection_Run3Winter20_V2_MC_AK8PFPuppiHLT'),
-        label = cms.untracked.string('AK8PFPuppiHLT'),
-      ),
-    ),
-  )
-  process.jescESPrefer = cms.ESPrefer('PoolDBESSource', 'jescESSource')
-
-else:
-  ## ES modules for HLT JECs
-  process.jescESSource = cms.ESSource('PoolDBESSource',
-    _CondDB.clone(connect = 'sqlite_file:'+os.environ['CMSSW_BASE']+'/src/JMETriggerAnalysis/NTuplizers/data/JESC_Run3Winter20_V2_MC.db'),
-    toGet = cms.VPSet(
-      cms.PSet(
-        record = cms.string('JetCorrectionsRecord'),
-        tag = cms.string('JetCorrectorParametersCollection_Run3Winter20_V2_MC_AK4PFClusterHLT'),
-        label = cms.untracked.string('AK4PFClusterHLT'),
-      ),
-      cms.PSet(
-        record = cms.string('JetCorrectionsRecord'),
-        tag = cms.string('JetCorrectorParametersCollection_Run3Winter20_V2_MC_AK4PFHLT'),#!!
-        label = cms.untracked.string('AK4PFchsHLT'),
-      ),
-      cms.PSet(
-        record = cms.string('JetCorrectionsRecord'),
-        tag = cms.string('JetCorrectorParametersCollection_Run3Winter20_V2_MC_AK4PFPuppiHLT'),
-        label = cms.untracked.string('AK4PFPuppiHLT'),
-      ),
-      cms.PSet(
-        record = cms.string('JetCorrectionsRecord'),
-        tag = cms.string('JetCorrectorParametersCollection_Run3Winter20_V2_MC_AK8PFClusterHLT'),
-        label = cms.untracked.string('AK8PFClusterHLT'),
-      ),
-      cms.PSet(
-        record = cms.string('JetCorrectionsRecord'),
-        tag = cms.string('JetCorrectorParametersCollection_Run3Winter20_V2_MC_AK8PFHLT'),#!!
-        label = cms.untracked.string('AK8PFchsHLT'),
-      ),
-      cms.PSet(
-        record = cms.string('JetCorrectionsRecord'),
-        tag = cms.string('JetCorrectorParametersCollection_Run3Winter20_V2_MC_AK8PFPuppiHLT'),
-        label = cms.untracked.string('AK8PFPuppiHLT'),
-      ),
-    ),
-  )
-  process.jescESPrefer = cms.ESPrefer('PoolDBESSource', 'jescESSource')
+### customised JME collections
+#from JMETriggerAnalysis.Common.customise_hlt import *
+#process = addPaths_MC_JMECalo(process)
+#process = addPaths_MC_JMEPFCluster(process)
+#process = addPaths_MC_JMEPF(process)
+#process = addPaths_MC_JMEPFCHS(process)
+#process = addPaths_MC_JMEPFPuppi(process)
 
 ## Output NTuple
 process.TFileService = cms.Service('TFileService', fileName = cms.string(opts.output))
@@ -341,6 +279,8 @@ process.JMETriggerNTuple = cms.EDAnalyzer('JMETriggerNTuple',
   ),
 
   recoCaloJetCollections = cms.PSet(
+
+    hltAK4PFRecHitJets = cms.InputTag('hltAK4PFRecHitJets'),
 
     hltAK4CaloJets = cms.InputTag('hltAK4CaloJets'),
     hltAK4CaloJetsCorrected = cms.InputTag('hltAK4CaloJetsCorrected'),

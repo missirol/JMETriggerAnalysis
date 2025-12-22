@@ -9,10 +9,56 @@ from RecoJets.JetProducers.ak4PFClusterJets_cfi import ak4PFClusterJets as _ak4P
 from RecoJets.JetProducers.ak4PFJets_cfi import ak4PFJetsPuppi as _ak4PFJetsPuppi, ak4PFJetsCHS as _ak4PFJetsCHS
 from RecoJets.JetProducers.ak8PFJets_cfi import ak8PFJetsPuppi as _ak8PFJetsPuppi, ak8PFJetsCHS as _ak8PFJetsCHS
 
+from RecoParticleFlow.PFClusterProducer.particleFlowRecHitHO_cfi import particleFlowRecHitHO as _particleFlowRecHitHO
 from RecoParticleFlow.PFProducer.particleFlowTmpPtrs_cfi import particleFlowTmpPtrs as _particleFlowTmpPtrs
 
 from JMETriggerAnalysis.Common.multiplicityValueProducerFromNestedCollectionEdmNewDetSetVectorSiPixelClusterDouble_cfi\
  import multiplicityValueProducerFromNestedCollectionEdmNewDetSetVectorSiPixelClusterDouble as _nSiPixelClusters
+from JMETriggerAnalysis.Common.pfRecHitMerger_cfi import pfRecHitMerger as _pfRecHitMerger
+
+def addPaths_MC_JMEPFRecHit(process):
+
+    process.hltParticleFlowRecHitHO = _particleFlowRecHitHO.clone(
+      producers = {0: dict(src = 'hltHoreco')},
+    )
+
+    process.hltParticleFlowRecHits = _pfRecHitMerger.clone(
+      src = [
+        'hltParticleFlowRecHitHBHE',
+        'hltParticleFlowRecHitHO',
+        'hltParticleFlowRecHitHF',
+        'hltParticleFlowRecHitECALUnseeded',
+        'hltParticleFlowRecHitPSUnseeded',
+      ],
+    )
+
+    process.HLTParticleFlowRecHitsSequence = cms.Sequence(
+        process.hltParticleFlowRecHitHBHE
+      + process.hltParticleFlowRecHitHO
+      + process.hltParticleFlowRecHitHF
+      + process.hltParticleFlowRecHitECALUnseeded
+      + process.hltParticleFlowRecHitPSUnseeded
+      + process.hltParticleFlowRecHits
+    )
+
+    process.hltAK4PFRecHitJets = process.hltAK4CaloJets.clone(
+      src = 'hltParticleFlowRecHits',
+    )
+
+    process.MC_JMEPFRecHit_v1 = cms.Path(
+        process.HLTBeginSequence
+      + process.HLTDoFullUnpackingEgammaEcalWithoutPreshowerSequence
+      + process.HLTDoLocalHcalSequence
+      + process.HLTPreshowerSequence
+      + process.HLTParticleFlowRecHitsSequence
+      + process.hltAK4PFRecHitJets
+      + process.HLTEndSequence
+    )
+
+    if process.schedule_():
+      process.schedule_().append(process.MC_JMEPFRecHit_v1)
+
+    return process
 
 def addPaths_MC_JMECalo(process):
     process.hltPreMCJMECalo = cms.EDFilter('HLTPrescaler',
@@ -53,7 +99,7 @@ def addPaths_MC_JMECalo(process):
     )
 
     if process.schedule_():
-       process.schedule_().append(process.MC_JMECalo_v1)
+      process.schedule_().append(process.MC_JMECalo_v1)
 
     return process
 
