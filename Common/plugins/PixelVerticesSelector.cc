@@ -11,7 +11,7 @@
 #include "FWCore/MessageLogger/interface/MessageLogger.h"
 #include "DataFormats/VertexReco/interface/Vertex.h"
 #include "DataFormats/VertexReco/interface/VertexFwd.h"
-#include "RecoPixelVertexing/PixelVertexFinding/interface/PVClusterComparer.h"
+#include "RecoVertex/PixelVertexFinding/interface/PVClusterComparer.h"
 
 //#include <iostream>
 //#define LogTrace(X) std::cout << std::endl

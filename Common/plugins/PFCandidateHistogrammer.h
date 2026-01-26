@@ -139,7 +139,7 @@ void PFCandidateHistogrammer<PFCandType>::analyze(const edm::Event &iEvent, cons
         ++pfcand_mult_egammaHF;
       }  // HF tower identified as an EM particle
 
-      h_pfcand_particleId_->Fill(pid + 0.5);
+      h_pfcand_particleId_->Fill(float(pid) + 0.5);
       h_pfcand_pt_->Fill(pfc.pt());
       h_pfcand_pt_2_->Fill(pfc.pt());
       h_pfcand_eta_->Fill(pfc.eta());

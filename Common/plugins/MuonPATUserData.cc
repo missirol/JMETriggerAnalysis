@@ -1,5 +1,5 @@
 #include <FWCore/Framework/interface/Frameworkfwd.h>
-#include <FWCore/Framework/interface/EDProducer.h>
+#include <FWCore/Framework/interface/one/EDProducer.h>
 #include <FWCore/Framework/interface/Event.h>
 #include <FWCore/Framework/interface/MakerMacros.h>
 #include <FWCore/ParameterSet/interface/ParameterSet.h>
@@ -16,7 +16,7 @@
 #include <memory>
 #include <utility>
 
-class MuonPATUserData : public edm::EDProducer {
+class MuonPATUserData : public edm::one::EDProducer<edm::one::SharedResources> {
 public:
   explicit MuonPATUserData(const edm::ParameterSet&);
 

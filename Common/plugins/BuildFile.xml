@@ -21,7 +21,7 @@
   <use name="CondFormats/JetMETObjects"/>
   <use name="JetMETCorrections/JetCorrector"/>
   <use name="JetMETCorrections/Type1MET"/>
-  <use name="RecoPixelVertexing/PixelVertexFinding"/>
+  <use name="RecoVertex/PixelVertexFinding"/>
   <use name="rootmath"/>
   <use name="root"/>
 </library>
